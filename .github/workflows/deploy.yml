@@ -1,4 +1,4 @@
-name: Deploy Simplified Gallery to GitHub Pages
+name: Deploy Grid Gallery to GitHub Pages
 
 on:
   push:
@@ -26,12 +26,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Generate Static Photo Gallery
-        # Uses a pre-built action directly from the GitHub Marketplace
-        uses: thefabulousfanta/lito@main
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
         with:
-          input_dir: 'photos'
-          output_dir: 'dist'
+          node-version: '20'
+
+      - name: Install Graphic Processing Utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg graphicsmagick exiv2
+
+      - name: Compile Photo Grid Gallery
+        run: |
+          # Install the generator locally
+          npm install -g thumbsup
+          
+          # Create your asset output directory
+          mkdir -p dist
+          
+          # Run the builder over your folder to create a fully responsive grid site
+          thumbsup --input ./photos --output ./dist --theme cards --title "My Gallery"
 
       - name: Setup GitHub Pages Deployment Context
         uses: actions/configure-pages@v5
