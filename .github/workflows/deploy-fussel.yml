@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'photos/**' # Triggers only when images are added or changed
+      - 'photos/**'
 
 permissions:
   contents: read
@@ -39,27 +39,33 @@ jobs:
       - name: Install System Imaging Libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libheif-examples
+          sudo apt-get install -y ffmpeg libheif-examples graphicsmagick
 
       - name: Fetch Fussel Core Source Code
         run: |
           git clone https://github.com/cbenning/fussel.git fussel-core
           cd fussel-core
-          pip install -r requirements.txt
+          # Install uv toolchain to resolve modern dependencies
+          pip install uv
+          uv venv
+          . .venv/bin/activate
+          uv pip install .
+          
+          # Move to frontend assets directory
+          cd web
           yarn install
 
       - name: Process Raw Photos with Fussel Backend
         run: |
-          # Creates required output folder directories
           mkdir -p fussel-core/web/public/gallery
-          
-          # Executes Fussel's Python generator against your local photos folder
-          python fussel-core/fussel/cli.py --input-photos-dir ../photos --output-web-dir fussel-core/web/public/gallery
+          cd fussel-core
+          . .venv/bin/activate
+          # Execute module entry point directly
+          python -m fussel.cli --input-photos-dir ../photos --output-web-dir web/public/gallery
 
       - name: Compile React Frontend Production Build
         run: |
-          cd fussel-core
-          # Compiles the optimized static HTML, JS, and CSS bundle
+          cd fussel-core/web
           yarn build
 
       - name: Setup GitHub Pages Deployment Context
@@ -68,7 +74,7 @@ jobs:
       - name: Package Fussel Static Build Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './fussel-core/web/dist' # Points to Fussel's compiled Vite output directory
+          path: './fussel-core/web/dist'
 
       - name: Push Fussel Site to Live Server
         id: deployment
