@@ -1,0 +1,46 @@
+name: Deploy Simplified Gallery to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'photos/**'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Static Photo Gallery
+        # Uses a pre-built action directly from the GitHub Marketplace
+        uses: thefabulousfanta/lito@main
+        with:
+          input_dir: 'photos'
+          output_dir: 'dist'
+
+      - name: Setup GitHub Pages Deployment Context
+        uses: actions/configure-pages@v5
+
+      - name: Package Static Build Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Push Site to Live Server
+        id: deployment
+        uses: actions/deploy-pages@v4
