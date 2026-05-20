@@ -1,0 +1,75 @@
+name: Deploy Fussel Gallery to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'photos/**' # Triggers only when images are added or changed
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install System Imaging Libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libheif-examples
+
+      - name: Fetch Fussel Core Source Code
+        run: |
+          git clone https://github.com/cbenning/fussel.git fussel-core
+          cd fussel-core
+          pip install -r requirements.txt
+          yarn install
+
+      - name: Process Raw Photos with Fussel Backend
+        run: |
+          # Creates required output folder directories
+          mkdir -p fussel-core/web/public/gallery
+          
+          # Executes Fussel's Python generator against your local photos folder
+          python fussel-core/fussel/cli.py --input-photos-dir ../photos --output-web-dir fussel-core/web/public/gallery
+
+      - name: Compile React Frontend Production Build
+        run: |
+          cd fussel-core
+          # Compiles the optimized static HTML, JS, and CSS bundle
+          yarn build
+
+      - name: Setup GitHub Pages Deployment Context
+        uses: actions/configure-pages@v5
+
+      - name: Package Fussel Static Build Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './fussel-core/web/dist' # Points to Fussel's compiled Vite output directory
+
+      - name: Push Fussel Site to Live Server
+        id: deployment
+        uses: actions/deploy-pages@v4
